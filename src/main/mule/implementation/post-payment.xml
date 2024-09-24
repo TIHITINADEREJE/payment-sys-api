@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<flow name="post-paymentFlow" doc:id="b3a3780e-817e-4ee6-9d6e-1341344d3110" >
+		<logger level="INFO" doc:name="Before salesforce" doc:id="45914788-fe85-46bd-b96c-2bf5720f2fbe" message="Before salesforce" />
+		<salesforce:query doc:id="79a25ee4-2bb7-4729-921d-464563447862" config-ref="payment_salesforce_Config" target="PaymentNumber" targetValue="#[payload[0].PaymentNumber]" doc:name="Query" >
+			<salesforce:salesforce-query ><![CDATA[SELECT PaymentNumber FROM Payment where AccountId = :AccountId]]></salesforce:salesforce-query>
+			<salesforce:parameters ><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+	AccountId : "'" ++ payload[0]."Account" ++ "'"
+}]]]></salesforce:parameters>
+		</salesforce:query>
+		<choice doc:name="Choice" doc:id="028aeef0-53a7-4af2-9558-a8f42707fd51" >
+			<when expression="#[(vars.PaymentNumber != null and payload[0].Id != null) or (vars.PaymentNumber == null)]" >
+				<ee:transform doc:name="Transform Message" doc:id="d37ead36-b986-4717-a317-6418a86b29d8" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload map (data, index) ->
+{
+   AccountId : data."Account",
+   ProcessingMode : data."Processing Mode",
+   Status : data.Status,
+   Type : data.Type,
+   Amount : data.Amount,
+   Id : data.Id
+}
+]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<salesforce:upsert objectType="Payment" externalIdFieldName="Id" doc:id="4af66903-59dd-472d-a45e-f6fb4867d3ce" config-ref="payment_salesforce_Config" doc:name="Upsert" />
+				<logger level="INFO" doc:name="After salesforce" doc:id="2514b713-35aa-4f98-9463-2c0333986fcc" message="After salesforce" />
+				<ee:transform doc:name="Transform Message" doc:id="1b9a80b2-f31e-4ff8-9814-fa29b761c9c3" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var response = payload.items[0]
+---
+[
+    {
+        "created": response.payload.created,
+        "success": response.payload.success,
+        "Id": response.payload.id,
+        "errors": response.statusCode
+    }
+]]]></ee:set-payload>
+					</ee:message>
+					<ee:variables />
+				</ee:transform>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="Transform Message" doc:id="4e40d60d-69d6-46dd-a330-e5347ab2d870" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+"DUPLICATE"]]></ee:set-payload>
+					</ee:message>
+					<ee:variables />
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</flow>
+</mule>

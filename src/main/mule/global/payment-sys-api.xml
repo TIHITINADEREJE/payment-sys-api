@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd ">
+   <flow name="payment-sys-api-main">
+        <http:listener config-ref="payment-sys-api-httpListenerConfig" path="/api/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <logger level="INFO" doc:name="start logger" doc:id="7c97d1bb-ad5f-49c7-bcb1-60c2109893b7" message="start logger"/>
+		<apikit:router config-ref="payment-sys-api-config" />
+		<error-handler ref="globalErrorHandler" />
+    </flow>
+    <flow name="payment-sys-api-console">
+        <http:listener config-ref="payment-sys-api-httpListenerConfig" path="/console/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:console config-ref="payment-sys-api-config" />
+		<error-handler ref="globalErrorHandler" />
+    </flow>
+    <flow name="get:\payment:payment-sys-api-config">
+		<ee:transform doc:name="Transform Message" doc:id="1fd6190c-04e0-40e6-acee-c91499dbd5b1" >
+			<ee:message />
+			<ee:variables >
+				<ee:set-variable variableName="field" ><![CDATA[p('field.payment')]]></ee:set-variable>
+				<ee:set-variable variableName="Id" ><![CDATA[attributes.queryParams.Id]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<flow-ref doc:name="get-paymentFlow" doc:id="1c9c838a-96cb-4ac3-b633-edff494d6137" name="get-paymentFlow" />
+    </flow>
+    <flow name="post:\payment:application\json:payment-sys-api-config">
+		<flow-ref doc:name="post-paymentFlow" doc:id="af888c7d-a2e8-4bfc-9be9-a2a191dc71f5" name="post-paymentFlow"/>
+    </flow>
+</mule>
